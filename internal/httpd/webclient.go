@@ -101,6 +101,9 @@ type baseClientPage struct {
 	IsLoggedToShare bool
 	Branding        UIBranding
 	Languages       []string
+	// UploadChunkSize is the chunk size, in bytes, for resumable uploads, 0 means disabled
+	UploadChunkSize  int64
+	ChunkedUploadURL string
 }
 
 type dirMapping struct {
@@ -561,9 +564,13 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, w http.Res
 		IsLoggedToShare: false,
 		Branding:        s.binding.webClientBranding(),
 		Languages:       s.binding.languages(),
+		UploadChunkSize: s.getMaxChunkSize(),
 	}
 	if !strings.HasPrefix(r.RequestURI, webClientPubSharesPath) {
 		data.LoginURL = webClientLoginPath
+		if data.UploadChunkSize > 0 {
+			data.ChunkedUploadURL = webClientChunkedUploadPath
+		}
 	}
 	return data
 }
@@ -783,6 +790,9 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 	baseSharePath := path.Join(webClientPubSharesPath, share.ShareID)
 	baseData.LogoutURL = path.Join(webClientPubSharesPath, share.ShareID, "logout")
 	baseData.IsLoggedToShare = share.Password != ""
+	if baseData.UploadChunkSize > 0 {
+		baseData.ChunkedUploadURL = path.Join(baseSharePath, "chunked-upload")
+	}
 
 	data := filesPage{
 		baseClientPage: baseData,
@@ -832,6 +842,9 @@ func (s *httpdServer) renderUploadToSharePage(w http.ResponseWriter, r *http.Req
 		baseClientPage: s.getBaseClientPageData(util.I18nShareUploadTitle, currentURL, w, r),
 		Share:          share,
 		UploadBasePath: path.Join(webClientPubSharesPath, share.ShareID),
+	}
+	if data.UploadChunkSize > 0 {
+		data.ChunkedUploadURL = path.Join(webClientPubSharesPath, share.ShareID, "chunked-upload")
 	}
 	data.LogoutURL = ""
 	if share.Password != "" {

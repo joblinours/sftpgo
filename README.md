@@ -8,6 +8,26 @@ Full-featured and highly configurable event-driven file transfer solution. Serve
 
 With SFTPGo you can leverage local and cloud storage backends for exchanging and storing files internally or with business partners using the same tools and processes you are already familiar with.
 
+## About this fork
+
+This is a fork of [drakkan/sftpgo](https://github.com/drakkan/sftpgo) that adds **resumable chunked uploads** to the WebClient and to public shares, so large files can be uploaded through reverse proxies that limit the request body size (for example Cloudflare and Cloudflare Tunnel, 100 MB on free plans).
+
+How it works:
+
+- the browser splits each file in chunks and sends them in separate requests (tus 1.0.0 subset: creation, `PATCH`, `HEAD`, termination), an interrupted chunk is resumed from the offset stored on the server;
+- chunks are stored in a local temporary directory; when the last chunk is received SFTPGo replies immediately and moves the file to the user's storage backend (local, SFTP, S3, ...) in background, using the standard upload path so permissions, quotas, hooks and events are applied as usual. The browser waits for the result, so the last request never hits a proxy timeout;
+- public shares: each chunk is checked against the share expiration, allowed IPs and password; a file consumes a single share usage token, released if the upload fails or is aborted;
+- abandoned uploads are removed after 24 hours of inactivity.
+
+Configuration:
+
+| Setting | Env var | Description |
+| --- | --- | --- |
+| `httpd.bindings[].upload_chunk_size` | `SFTPGO_HTTPD__BINDINGS__0__UPLOAD_CHUNK_SIZE` | chunk size in MB, `0` disables chunked uploads. Use a value lower than your proxy limit, e.g. `50` for Cloudflare free |
+| `httpd.upload_temp_path` | `SFTPGO_HTTPD__UPLOAD_TEMP_PATH` | local directory for the chunks, default `<os temp dir>/sftpgo-chunked-uploads`. It needs free space for the files being uploaded concurrently |
+
+Docker images of this fork are published to `ghcr.io/joblinours/sftpgo` by the `Fork Docker image` workflow.
+
 ## Project Status & Editions
 
 SFTPGo is an open-source project with a sustainable business model. We offer two editions to suit different requirements, ensuring the project remains healthy and maintained for everyone.

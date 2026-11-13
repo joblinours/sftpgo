@@ -155,6 +155,7 @@ const (
 	webClientTwoFactorRecoveryPathDefault = "/web/client/twofactor-recovery"
 	webClientFilesPathDefault             = "/web/client/files"
 	webClientFilePathDefault              = "/web/client/file"
+	webClientChunkedUploadPathDefault     = "/web/client/chunked-upload"
 	webClientFileActionsPathDefault       = "/web/client/file-actions"
 	webClientSharesPathDefault            = "/web/client/shares"
 	webClientSharePathDefault             = "/web/client/share"
@@ -278,6 +279,7 @@ var (
 	webClientViewPDFPath           string
 	webClientGetPDFPath            string
 	webClientExistPath             string
+	webClientChunkedUploadPath     string
 	webClientTasksPath             string
 	webStaticFilesPath             string
 	webOpenAPIPath                 string
@@ -640,6 +642,12 @@ type Binding struct {
 	OIDC OIDC `json:"oidc" mapstructure:"oidc"`
 	// Security defines security headers to add to HTTP responses and allows to restrict allowed hosts
 	Security SecurityConf `json:"security" mapstructure:"security"`
+	// UploadChunkSize defines the size, in MB, of the chunks used by the WebClient
+	// (including public shares) for resumable chunked uploads.
+	// 0 means disabled: files are uploaded using a single HTTP request.
+	// Set a value lower than the request body limit of any proxy in front of SFTPGo,
+	// for example 50 for Cloudflare free plan (100 MB limit)
+	UploadChunkSize int `json:"upload_chunk_size" mapstructure:"upload_chunk_size"`
 	// Branding defines customizations to suit your brand
 	Branding         Branding `json:"branding" mapstructure:"branding"`
 	allowHeadersFrom []func(net.IP) bool
@@ -964,6 +972,11 @@ type Conf struct {
 	// MaxUploadFileSize Defines the maximum request body size, in bytes, for Web Client/API HTTP upload requests.
 	// 0 means no limit
 	MaxUploadFileSize int64 `json:"max_upload_file_size" mapstructure:"max_upload_file_size"`
+	// UploadTempPath defines the local directory used to store the chunks of resumable
+	// uploads until they are complete and moved to the user's storage backend.
+	// Empty means a "sftpgo-chunked-uploads" directory inside the OS temporary directory.
+	// It is only used for bindings with upload_chunk_size > 0
+	UploadTempPath string `json:"upload_temp_path" mapstructure:"upload_temp_path"`
 	// CORS configuration
 	Cors CorsConfig `json:"cors" mapstructure:"cors"`
 	// Initial setup configuration
@@ -1203,6 +1216,7 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 func (c *Conf) applyGlobalSettings() {
 	globalSettingsOnce.Do(func() {
 		maxUploadFileSize = c.MaxUploadFileSize
+		chunkedUploads.setTempPath(c.UploadTempPath)
 		installationCode = c.Setup.InstallationCode
 		installationCodeHint = c.Setup.InstallationCodeHint
 		updateTokensDuration(c.JWTLifetime, c.CookieLifetime, c.ShareCookieLifetime)
@@ -1313,6 +1327,7 @@ func updateWebClientURLs(baseURL string) {
 	webClientViewPDFPath = path.Join(baseURL, webClientViewPDFPathDefault)
 	webClientGetPDFPath = path.Join(baseURL, webClientGetPDFPathDefault)
 	webClientExistPath = path.Join(baseURL, webClientExistPathDefault)
+	webClientChunkedUploadPath = path.Join(baseURL, webClientChunkedUploadPathDefault)
 	webClientTasksPath = path.Join(baseURL, webClientTasksPathDefault)
 	webStaticFilesPath = path.Join(baseURL, webStaticFilesPathDefault)
 	webOpenAPIPath = path.Join(baseURL, webOpenAPIPathDefault)
@@ -1406,6 +1421,7 @@ func startCleanupTicker(duration time.Duration) {
 				resetCodesMgr.Cleanup()
 				codeSendMarkersMgr.Cleanup()
 				webTaskMgr.Cleanup()
+				chunkedUploads.cleanup()
 				if counter%2 == 0 {
 					oidcMgr.cleanup()
 					oauth2Mgr.cleanup()

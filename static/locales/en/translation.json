@@ -365,6 +365,9 @@
             "err_403": "$t(fs.upload.err_generic). $t(fs.err_403)",
             "err_429": "$t(fs.upload.err_generic). $t(fs.err_429)",
             "err_dir_overwrite": "$t(fs.upload.err_generic). There are directories with the same name as the files: {{- val}}",
+            "processing": "{{- name}}: saving to storage, please wait...",
+            "err_413": "$t(fs.upload.err_generic). Quota exceeded or file too large",
+            "err_507": "$t(fs.upload.err_generic). Not enough temporary space on the server",
             "overwrite_text": "Conflict detected. Do you want to overwrite the following files/directories?"
         },
         "quota_usage": {

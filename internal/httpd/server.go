@@ -1631,6 +1631,13 @@ func (s *httpdServer) setupWebClientRoutes() {
 		s.router.Get(webClientPubSharesPath+"/{id}/download", s.handleClientSharedFile)
 		s.router.Get(webClientPubSharesPath+"/{id}/upload", s.handleClientUploadToShare)
 		s.router.With(compressor.Handler).Get(webClientPubSharesPath+"/{id}/dirs", s.handleShareGetDirContents)
+		if s.binding.UploadChunkSize > 0 {
+			s.router.Post(webClientPubSharesPath+"/{id}/chunked-upload", s.handleShareChunkedUploadCreate)
+			s.router.Head(webClientPubSharesPath+"/{id}/chunked-upload/{uploadid}", s.handleShareChunkedUploadHead)
+			s.router.Patch(webClientPubSharesPath+"/{id}/chunked-upload/{uploadid}", s.handleShareChunkedUploadPatch)
+			s.router.Delete(webClientPubSharesPath+"/{id}/chunked-upload/{uploadid}", s.handleShareChunkedUploadDelete)
+			s.router.Get(webClientPubSharesPath+"/{id}/chunked-upload/{uploadid}", s.handleShareChunkedUploadStatus)
+		}
 		s.router.Post(webClientPubSharesPath+"/{id}", s.uploadFilesToShare)
 		s.router.Post(webClientPubSharesPath+"/{id}/{name}", s.uploadFileToShare)
 		s.router.Get(webClientPubSharesPath+"/{id}/viewpdf", s.handleShareViewPDF)
@@ -1652,6 +1659,15 @@ func (s *httpdServer) setupWebClientRoutes() {
 				getWebTask)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), s.verifyCSRFHeader).
 				Post(webClientFilePath, uploadUserFile)
+			if s.binding.UploadChunkSize > 0 {
+				chunkedUploadRouter := router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled),
+					s.verifyCSRFHeader)
+				chunkedUploadRouter.Post(webClientChunkedUploadPath, s.handleWebClientChunkedUploadCreate)
+				chunkedUploadRouter.Head(webClientChunkedUploadPath+"/{uploadid}", s.handleWebClientChunkedUploadHead)
+				chunkedUploadRouter.Patch(webClientChunkedUploadPath+"/{uploadid}", s.handleWebClientChunkedUploadPatch)
+				chunkedUploadRouter.Delete(webClientChunkedUploadPath+"/{uploadid}", s.handleWebClientChunkedUploadDelete)
+				chunkedUploadRouter.Get(webClientChunkedUploadPath+"/{uploadid}", s.handleWebClientChunkedUploadStatus)
+			}
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), s.verifyCSRFHeader).
 				Post(webClientExistPath, s.handleClientCheckExist)
 			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientEditFilePath, s.handleClientEditFile)

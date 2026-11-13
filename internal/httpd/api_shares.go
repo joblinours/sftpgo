@@ -498,6 +498,16 @@ func (s *httpdServer) checkWebClientShareCredentials(w http.ResponseWriter, r *h
 
 func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, validScopes []dataprovider.ShareScope,
 ) (dataprovider.Share, *Connection, error) {
+	return s.checkPublicShareWithOptions(w, r, validScopes, false)
+}
+
+// checkPublicShareWithOptions validates the public share referenced by the request.
+// If skipTokensCheck is true the max usage limit is not enforced, this is used for
+// requests related to a chunked upload whose usage token was already reserved
+// when the upload was created. Expiration, allowed IPs and credentials are always checked.
+func (s *httpdServer) checkPublicShareWithOptions(w http.ResponseWriter, r *http.Request,
+	validScopes []dataprovider.ShareScope, skipTokensCheck bool,
+) (dataprovider.Share, *Connection, error) {
 	isWebClient := isWebClientRequest(r)
 	renderError := func(err error, message string, statusCode int) {
 		if isWebClient {
@@ -523,7 +533,11 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, v
 		return share, nil, err
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	ok, err := share.IsUsable(ipAddr)
+	shareToCheck := share
+	if skipTokensCheck {
+		shareToCheck.MaxTokens = 0
+	}
+	ok, err := shareToCheck.IsUsable(ipAddr)
 	if !ok || err != nil {
 		renderError(err, "", getRespStatus(err))
 		return share, nil, err

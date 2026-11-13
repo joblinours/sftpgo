@@ -365,6 +365,9 @@
             "err_403": "$t(fs.upload.err_generic). $t(fs.err_403)",
             "err_429": "$t(fs.upload.err_generic). $t(fs.err_429)",
             "err_dir_overwrite": "$t(fs.upload.err_generic). Il y a des répertoires avec le même nom que les fichiers : {{- val}}",
+            "processing": "{{- name}} : enregistrement sur le stockage, veuillez patienter...",
+            "err_413": "$t(fs.upload.err_generic). Quota dépassé ou fichier trop volumineux",
+            "err_507": "$t(fs.upload.err_generic). Espace temporaire insuffisant sur le serveur",
             "overwrite_text": "Conflit détecté. Voulez-vous écraser les fichiers/répertoires suivants ?"
         },
         "quota_usage": {

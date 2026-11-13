@@ -120,6 +120,7 @@ var (
 		ClientIPHeaderDepth:  0,
 		HideLoginURL:         0,
 		RenderOpenAPI:        true,
+		UploadChunkSize:      0,
 		BaseURL:              "",
 		Languages:            []string{"en"},
 		OIDC: httpd.OIDC{
@@ -417,6 +418,7 @@ func Init() {
 			ShareCookieLifetime:   120,
 			JWTLifetime:           20,
 			MaxUploadFileSize:     0,
+			UploadTempPath:        "",
 			Cors: httpd.CorsConfig{
 				Enabled:              false,
 				AllowedOrigins:       []string{},
@@ -1961,6 +1963,12 @@ func getHTTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	uploadChunkSize, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__UPLOAD_CHUNK_SIZE", idx), 32)
+	if ok {
+		binding.UploadChunkSize = int(uploadChunkSize)
+		isSet = true
+	}
+
 	if getHTTPDNestedObjectsFromEnv(idx, &binding) {
 		isSet = true
 	}
@@ -2225,6 +2233,7 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.share_cookie_lifetime", globalConf.HTTPDConfig.ShareCookieLifetime)
 	viper.SetDefault("httpd.jwt_lifetime", globalConf.HTTPDConfig.JWTLifetime)
 	viper.SetDefault("httpd.max_upload_file_size", globalConf.HTTPDConfig.MaxUploadFileSize)
+	viper.SetDefault("httpd.upload_temp_path", globalConf.HTTPDConfig.UploadTempPath)
 	viper.SetDefault("httpd.cors.enabled", globalConf.HTTPDConfig.Cors.Enabled)
 	viper.SetDefault("httpd.cors.allowed_origins", globalConf.HTTPDConfig.Cors.AllowedOrigins)
 	viper.SetDefault("httpd.cors.allowed_methods", globalConf.HTTPDConfig.Cors.AllowedMethods)

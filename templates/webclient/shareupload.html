@@ -59,6 +59,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- end}}
 
 {{- define "extra_js"}}
+{{- if .ChunkedUploadURL}}
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/js/chunkedupload.js"></script>
+{{- end}}
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
 
     function uploadFiles(files) {
@@ -120,7 +123,31 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
             setLoadingText(info,f.name);
 
-            axios.post(uploadPath, f, {
+            let uploadRequest;
+            //{{- if .ChunkedUploadURL}}
+            uploadRequest = SFTPGoChunkedUpload.upload({
+                createURL: '{{.ChunkedUploadURL}}?name='+encodeURIComponent(name)+"&mkdir_parents="+mkdirParents,
+                file: f,
+                chunkSize: {{.UploadChunkSize}},
+                headers: {
+                    'X-SFTPGO-MTIME': lastModified,
+                    'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                },
+                onProgress: function (loaded, total) {
+                    if (!total){
+                        return;
+                    }
+                    const percentage = Math.round((100 * loaded) / total);
+                    if (percentage > 0 && percentage < 100){
+                        setLoadingText(info,`${f.name} ${percentage}%`);
+                    }
+                },
+                onProcessing: function () {
+                    setLoadingText(info, $.t('fs.upload.processing', {name: f.name}));
+                }
+            });
+            //{{- else}}
+            uploadRequest = axios.post(uploadPath, f, {
                 headers: {
                     'X-SFTPGO-MTIME': lastModified,
                     'X-CSRF-TOKEN': '{{.CSRFToken}}'
@@ -137,7 +164,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 validateStatus: function (status) {
                     return status == 201;
                 }
-            }).then(function (response) {
+            });
+            //{{- end}}
+            uploadRequest.then(function (response) {
                 index++;
                 success++;
                 uploadFile();
@@ -150,6 +179,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                             break;
                         case 429:
                             errorMessage = "fs.upload.err_429";
+                            break;
+                        case 413:
+                            errorMessage = "fs.upload.err_413";
+                            break;
+                        case 507:
+                            errorMessage = "fs.upload.err_507";
                             break;
                     }
                 }
